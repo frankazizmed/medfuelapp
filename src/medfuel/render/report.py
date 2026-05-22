@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import uuid
 from collections import Counter
 from datetime import date
@@ -24,6 +25,12 @@ from medfuel.models import (
 from medfuel.render.layout import plan_layout
 from medfuel.render.narrative import NarrativeRenderer
 from medfuel.verify.citations import build_citation_table
+
+log = logging.getLogger(__name__)
+
+
+class CitationResolveError(RuntimeError):
+    """Raised when a placed claim cannot resolve to at least one citation."""
 
 
 class ReportBuilder:
@@ -74,6 +81,10 @@ class ReportBuilder:
         # Persist the citation number assignment back onto the claim rows so
         # subsequent rerenders inherit the same numbering.
         self._write_back_citations(claims_rows, citation_map)
+        # Invariant: every claim the layout placed must resolve to at least one
+        # citation. Violations indicate a regression in the extraction → render
+        # chain and are unsafe to ship.
+        self._assert_citations_resolve(layout=layout, citation_map=citation_map)
 
         company = self.session.get(CompanyRow, company_id)
         company_name = company.legal_name if company else company_id
@@ -150,6 +161,20 @@ class ReportBuilder:
                 continue
             row.citation_numbers = nums
         self.session.flush()
+
+    @staticmethod
+    def _assert_citations_resolve(*, layout, citation_map: dict[str, list[int]]) -> None:
+        unresolved: list[str] = []
+        for section in layout.sections:
+            for claim_id in section.claim_ids + section.overflow_claim_ids:
+                if not citation_map.get(claim_id):
+                    unresolved.append(claim_id)
+        if unresolved:
+            raise CitationResolveError(
+                f"{len(unresolved)} placed claims have no resolved citations: "
+                + ", ".join(unresolved[:5])
+                + ("..." if len(unresolved) > 5 else "")
+            )
 
     @staticmethod
     def _summarize_confidence(claims: list[VerifiedClaim]) -> dict[str, int]:

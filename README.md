@@ -84,8 +84,35 @@ GET  /v1/regulatory/reports/{report_id}       # layout plan + confidence summary
 GET  /v1/regulatory/reports/{report_id}/narrative   # plain markdown
 GET  /v1/regulatory/reports/{report_id}/citations   # full inline citation table
 POST /v1/regulatory/reports/{report_id}/rerender    # rebuild at a new page budget
+GET  /v1/regulatory/sources/health            # adapter configuration matrix
 GET  /health
 ```
+
+## Hardening (Phase 4)
+
+- **Structured JSON logging** with per-job context (`job_id`, `company_id`,
+  `company`) bound at job entry; downstream adapter / extract / verify /
+  render records inherit the context automatically.
+- **Span timing logs** around `discovery.collect`, `discovery.persist`,
+  `extract.run`, `verify.run`, `render.build`. Drop-in compatible with
+  OpenTelemetry — when an OTLP exporter is wired, the same call sites
+  become real spans without code changes.
+- **Citation-resolve invariant**: the report builder raises
+  `CitationResolveError` if any placed claim cannot resolve to at least
+  one citation. Caught in CI by `tests/test_invariants.py`.
+- **Gold-set regression suite** (`tests/gold_set/`) covers four design
+  archetypes: small-cap FDA late-stage, medtech 510(k), EMA-only, and
+  IP-heavy with thin regulatory footprint. Each fixture asserts on
+  expected events, agencies, asset resolution, and high-signal claim
+  counts at the claim level — not just whole-report rollups.
+- **Sources-health endpoint** (`GET /v1/regulatory/sources/health`)
+  surfaces a static configuration matrix: which adapters are usable
+  with the current environment, which require a Firecrawl key, and the
+  rate-limit hint for each. Deliberately does not issue outbound calls.
+- **Supabase RLS policy templates** (`policies/supabase.sql`) document
+  the recommended row-level security posture, audit-table append-only
+  policies, useful indexes, and pgvector enablement for Postgres
+  production targets.
 
 ## Quickstart
 

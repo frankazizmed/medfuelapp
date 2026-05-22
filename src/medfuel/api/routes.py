@@ -7,12 +7,13 @@ from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
+from medfuel.config import get_settings
 from medfuel.db.orm import CitationRow, ReportRunRow
 from medfuel.db.registry import DocumentRegistry
 from medfuel.db.session import get_sessionmaker
 from medfuel.ingest.pipeline import run_discovery
 from medfuel.models.extraction import ReportPlan
-from medfuel.models.schemas import CompanyIdentity, JurisdictionScope
+from medfuel.models.schemas import CompanyIdentity, JurisdictionScope, SourceType
 from medfuel.render import ReportBuilder
 
 router = APIRouter(prefix="/v1/regulatory", tags=["regulatory"])
@@ -207,6 +208,97 @@ def get_report_citations(report_id: str, db: Session = Depends(get_db)) -> Citat
             for r in rows
         ],
     )
+
+
+# --------------------------------------------------------------------- sources
+class SourceHealthEntry(BaseModel):
+    source_type: SourceType
+    configured: bool
+    requires_api_key: bool
+    api_key_present: bool
+    rate_limit_hint: str | None = None
+
+
+class SourceHealthResponse(BaseModel):
+    sources: list[SourceHealthEntry]
+
+
+@router.get("/sources/health", response_model=SourceHealthResponse)
+def sources_health() -> SourceHealthResponse:
+    """Static configuration health for each adapter.
+
+    Reports which adapters will function with the current environment. We
+    deliberately do NOT issue outbound calls here so the endpoint stays cheap
+    and never advertises a "live" status that's only true at the moment of
+    polling. For real connectivity checks use the discovery pipeline.
+    """
+    settings = get_settings()
+    rows: list[SourceHealthEntry] = [
+        SourceHealthEntry(
+            source_type=SourceType.FDA,
+            configured=True,
+            requires_api_key=False,
+            api_key_present=bool(settings.openfda_api_key),
+            rate_limit_hint=f"{settings.openfda_rate_per_minute}/min",
+        ),
+        SourceHealthEntry(
+            source_type=SourceType.SEC,
+            configured=True,
+            requires_api_key=False,
+            api_key_present=True,
+            rate_limit_hint=f"{settings.sec_rate_per_second}/sec",
+        ),
+        SourceHealthEntry(
+            source_type=SourceType.CLINICALTRIALS,
+            configured=True,
+            requires_api_key=False,
+            api_key_present=True,
+            rate_limit_hint=f"{settings.clinicaltrials_rate_per_second}/sec",
+        ),
+        SourceHealthEntry(
+            source_type=SourceType.PUBMED,
+            configured=True,
+            requires_api_key=False,
+            api_key_present=bool(settings.ncbi_api_key),
+            rate_limit_hint=f"{settings.ncbi_rate_per_second}/sec (10/sec with key)",
+        ),
+        SourceHealthEntry(
+            source_type=SourceType.EMA,
+            configured=True,
+            requires_api_key=False,
+            api_key_present=True,
+            rate_limit_hint=f"{settings.ema_rate_per_second}/sec",
+        ),
+        SourceHealthEntry(
+            source_type=SourceType.USPTO,
+            configured=True,
+            requires_api_key=False,
+            api_key_present=bool(settings.uspto_api_key),
+            rate_limit_hint=f"{settings.uspto_rate_per_second}/sec",
+        ),
+        SourceHealthEntry(
+            source_type=SourceType.MHRA,
+            configured=bool(settings.firecrawl_api_key),
+            requires_api_key=True,
+            api_key_present=bool(settings.firecrawl_api_key),
+            rate_limit_hint=f"{settings.firecrawl_rate_per_second}/sec (via Firecrawl)",
+        ),
+        SourceHealthEntry(
+            source_type=SourceType.PMDA,
+            configured=bool(settings.firecrawl_api_key),
+            requires_api_key=True,
+            api_key_present=bool(settings.firecrawl_api_key),
+            rate_limit_hint=f"{settings.firecrawl_rate_per_second}/sec (via Firecrawl)",
+        ),
+        SourceHealthEntry(
+            source_type=SourceType.COMPANY,
+            configured=bool(settings.firecrawl_api_key),
+            requires_api_key=True,
+            api_key_present=bool(settings.firecrawl_api_key),
+            rate_limit_hint=f"{settings.firecrawl_rate_per_second}/sec (via Firecrawl)",
+        ),
+    ]
+    return SourceHealthResponse(sources=rows)
 
 
 @router.post("/reports/{report_id}/rerender", response_model=ReportResponse)

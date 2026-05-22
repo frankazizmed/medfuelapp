@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     narrative_model: str = "claude-opus-4-7"
     narrative_fallback_model: str = "claude-sonnet-4-6"
 
+    log_level: str = "INFO"
+
     http_timeout_seconds: float = 30.0
     http_max_retries: int = 4
 

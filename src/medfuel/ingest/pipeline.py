@@ -30,6 +30,7 @@ from medfuel.models.schemas import (
     RawSourceRecord,
     SourceType,
 )
+from medfuel.observability import bind_job_context, clear_job_context, span
 from medfuel.render import ReportBuilder
 from medfuel.verify import Verifier
 
@@ -135,15 +136,18 @@ async def run_discovery(
                 requested_pages=requested_pages,
             )
             job_id = job.job_id
+        bind_job_context(job_id=job_id, company_id=company.company_id, company=identity.name)
         registry.update_job(job_id, status="running")
         session.commit()
 
-        records, errors, by_source = await pipeline.collect(identity, scope)
+        with span("discovery.collect"):
+            records, errors, by_source = await pipeline.collect(identity, scope)
 
-        new_count, dup_count = registry.persist_records(
-            company.company_id, job_id, records
-        )
-        session.commit()
+        with span("discovery.persist", count=len(records)):
+            new_count, dup_count = registry.persist_records(
+                company.company_id, job_id, records
+            )
+            session.commit()
 
         events_persisted = 0
         claims_persisted = 0
@@ -151,33 +155,36 @@ async def run_discovery(
 
         if build_report:
             extractor_orch = ExtractionOrchestrator()
-            candidate_pairs = await extractor_orch.run(
-                session=session, company_id=company.company_id, job_id=job_id
-            )
-            session.commit()
+            with span("extract.run"):
+                candidate_pairs = await extractor_orch.run(
+                    session=session, company_id=company.company_id, job_id=job_id
+                )
+                session.commit()
 
-            verifier = Verifier(session)
-            verification = verifier.run(
-                company_id=company.company_id,
-                job_id=job_id,
-                candidate_pairs=candidate_pairs,
-            )
-            events_persisted = len(verification.events)
-            claims_persisted = len(verification.claims)
-            session.commit()
-
-            builder = ReportBuilder(session)
-            report_row = await builder.build(
-                company_id=company.company_id,
-                job_id=job_id,
-                plan=ReportPlan(
+            with span("verify.run", candidates=len(candidate_pairs)):
+                verifier = Verifier(session)
+                verification = verifier.run(
                     company_id=company.company_id,
-                    requested_pages=requested_pages,
-                    max_pages=max_pages,
-                ),
-            )
-            report_id = report_row.report_id
-            session.commit()
+                    job_id=job_id,
+                    candidate_pairs=candidate_pairs,
+                )
+                events_persisted = len(verification.events)
+                claims_persisted = len(verification.claims)
+                session.commit()
+
+            with span("render.build", events=events_persisted, claims=claims_persisted):
+                builder = ReportBuilder(session)
+                report_row = await builder.build(
+                    company_id=company.company_id,
+                    job_id=job_id,
+                    plan=ReportPlan(
+                        company_id=company.company_id,
+                        requested_pages=requested_pages,
+                        max_pages=max_pages,
+                    ),
+                )
+                report_id = report_row.report_id
+                session.commit()
 
         result = DiscoveryResult(
             company_id=company.company_id,
@@ -213,3 +220,4 @@ async def run_discovery(
             await pipeline.aclose()
         if own_session:
             session.close()
+        clear_job_context()

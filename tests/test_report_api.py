@@ -151,3 +151,19 @@ def test_rerender_creates_new_report_run(client):
 def test_get_unknown_report_returns_404(client):
     resp = client.get("/v1/regulatory/reports/rpt_does_not_exist")
     assert resp.status_code == 404
+
+
+def test_sources_health_returns_full_matrix(client):
+    resp = client.get("/v1/regulatory/sources/health")
+    assert resp.status_code == 200
+    body = resp.json()
+    by_type = {entry["source_type"]: entry for entry in body["sources"]}
+    # All nine known sources must appear.
+    assert {
+        "fda", "sec", "clinicaltrials", "pubmed", "ema", "uspto",
+        "mhra", "pmda", "company",
+    } <= set(by_type)
+    # MHRA/PMDA/company are gated on the Firecrawl key; off by default.
+    assert by_type["mhra"]["configured"] is False
+    assert by_type["fda"]["configured"] is True
+    assert "min" in by_type["fda"]["rate_limit_hint"]

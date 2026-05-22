@@ -5,11 +5,14 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from medfuel.api.routes import router
+from medfuel.config import get_settings
 from medfuel.db.session import init_db
+from medfuel.observability import configure_logging
 
 
 @asynccontextmanager
 async def _lifespan(_app: FastAPI):
+    configure_logging(get_settings().log_level)
     init_db()
     yield
 
