@@ -1,0 +1,238 @@
+{
+  "run_id": "demo-fixture",
+  "company_id": "co-acme",
+  "company_name": "Acme Therapeutics",
+  "pages": [
+    {
+      "index": 1,
+      "title": "Clinical Executive Summary",
+      "blocks": [
+        {
+          "kind": "heading",
+          "citation_numbers": [],
+          "text": "Clinical Executive Summary",
+          "level": 1
+        },
+        {
+          "kind": "paragraph",
+          "citation_numbers": [
+            1,
+            1
+          ],
+          "text": "Acme Therapeutics's clinical evidence base spans 1 trial(s) (1 late-stage) with 2 material findings; 0 corroborated across ≥2 independent sources. Evidence-weighted signal density is driven by the items in the endpoint and safety analyses on the following pages."
+        },
+        {
+          "kind": "callout",
+          "citation_numbers": [
+            1
+          ],
+          "tone": "signal",
+          "title": "Strongest clinical signal",
+          "text": "Primary composite endpoint of CV death or HF hospitalization reduced vs placebo at median 28 months follow-up. — CV death or HF hospitalization, 0.78, p=0.0009, n=2400"
+        },
+        {
+          "kind": "callout",
+          "citation_numbers": [],
+          "tone": "risk",
+          "title": "Top risk surface",
+          "text": "Safety signal (1)"
+        },
+        {
+          "kind": "evidence_hierarchy",
+          "citation_numbers": [],
+          "title": "Evidence hierarchy by finding type",
+          "entries": [
+            {
+              "label": "Efficacy",
+              "weight": 0.781,
+              "verification": "REPORTED",
+              "citation_numbers": [
+                1
+              ]
+            },
+            {
+              "label": "Safety",
+              "weight": 0.521,
+              "verification": "REPORTED",
+              "citation_numbers": [
+                1
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "title": "Trial Architecture",
+      "blocks": [
+        {
+          "kind": "heading",
+          "citation_numbers": [],
+          "text": "Trial Architecture",
+          "level": 1
+        },
+        {
+          "kind": "trial_timeline",
+          "citation_numbers": [],
+          "title": "Trial portfolio",
+          "entries": [
+            {
+              "label": "ACME-101 Phase 3 in HFrEF",
+              "phase": "phase3",
+              "start": "2022-01-01",
+              "end": "2024-06-30",
+              "status": "Completed",
+              "citation_numbers": []
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "citation_numbers": [],
+          "text": "1/1 randomized; 1/1 blinded; 1/1 placebo-controlled. Mean enrollment per trial: 2400."
+        }
+      ]
+    },
+    {
+      "index": 3,
+      "title": "Efficacy Analysis",
+      "blocks": [
+        {
+          "kind": "heading",
+          "citation_numbers": [],
+          "text": "Efficacy Analysis",
+          "level": 1
+        },
+        {
+          "kind": "endpoint_table",
+          "citation_numbers": [],
+          "title": "Primary + key secondary endpoints",
+          "rows": [
+            {
+              "endpoint": "CV death or HF hospitalization",
+              "endpoint_type": "hard",
+              "arm": null,
+              "result": "0.78",
+              "p_value": 0.0009,
+              "ci": "[0.69, 0.88]",
+              "n": 2400,
+              "citation_numbers": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "paragraph",
+          "citation_numbers": [
+            1
+          ],
+          "text": "Longest reported follow-up: 28.0 months across 1 finding(s)."
+        }
+      ]
+    },
+    {
+      "index": 4,
+      "title": "Safety + Tolerability",
+      "blocks": [
+        {
+          "kind": "heading",
+          "citation_numbers": [],
+          "text": "Safety + Tolerability",
+          "level": 1
+        },
+        {
+          "kind": "safety_heatmap",
+          "citation_numbers": [],
+          "title": "Adverse event profile",
+          "rows": [
+            {
+              "event": "Serious adverse events",
+              "rate_treatment": 18.0,
+              "rate_control": null,
+              "severity": "sae",
+              "citation_numbers": [
+                1
+              ]
+            }
+          ]
+        },
+        {
+          "kind": "callout",
+          "citation_numbers": [
+            1
+          ],
+          "tone": "risk",
+          "title": "Safety signal worth diligence",
+          "text": "Serious adverse events 18% treatment vs 19% placebo. — Serious adverse events, 18.0%, n=2400"
+        }
+      ]
+    },
+    {
+      "index": 5,
+      "title": "Clinical Signal Interpretation",
+      "blocks": [
+        {
+          "kind": "heading",
+          "citation_numbers": [],
+          "text": "Clinical Signal Interpretation",
+          "level": 1
+        },
+        {
+          "kind": "paragraph",
+          "citation_numbers": [
+            1
+          ],
+          "text": "Primary composite endpoint of CV death or HF hospitalization reduced vs placebo at median 28 months follow-up. — CV death or HF hospitalization, 0.78, p=0.0009, n=2400 Adoption-relevant given endpoint quality and effect size. Supports commercialization narrative on clinically familiar endpoints. Aligns with the endpoint set regulators have historically accepted."
+        },
+        {
+          "kind": "paragraph",
+          "citation_numbers": [
+            1
+          ],
+          "text": "Serious adverse events 18% treatment vs 19% placebo. — Serious adverse events, 18.0%, n=2400"
+        }
+      ]
+    },
+    {
+      "index": 6,
+      "title": "Key Risks + Evidence Gaps",
+      "blocks": [
+        {
+          "kind": "heading",
+          "citation_numbers": [],
+          "text": "Key Risks + Evidence Gaps",
+          "level": 1
+        },
+        {
+          "kind": "callout",
+          "citation_numbers": [],
+          "tone": "risk",
+          "title": "Safety signal",
+          "text": "Observed in 1 ranked finding(s)."
+        }
+      ]
+    }
+  ],
+  "citations": [
+    {
+      "number": 1,
+      "doc_id": "pm-12345",
+      "url": "https://pubmed.ncbi.nlm.nih.gov/12345/",
+      "title": "ACME-101 reduces CV death and HF hospitalization",
+      "source": "pubmed",
+      "confidence": 0.8,
+      "evidence_strength": 1.0
+    }
+  ],
+  "page_count": 6,
+  "expanded_from_default": false,
+  "omitted_high_signal_fraction": 0.0,
+  "generated_at": "2026-05-22T23:02:11.863352Z",
+  "model_versions": {
+    "extraction": "gpt-5.5-mini",
+    "narrative": "claude-opus-4-7",
+    "embedding": "text-embedding-3-large"
+  }
+}
