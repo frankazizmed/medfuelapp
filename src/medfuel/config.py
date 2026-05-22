@@ -23,6 +23,20 @@ class Settings(BaseSettings):
     firecrawl_api_key: str | None = None
     firecrawl_base_url: str = "https://api.firecrawl.dev"
 
+    # LLM routing. Off by default so CI and local dev run with the deterministic
+    # stubs. Set MEDFUEL_USE_LLM=1 plus the relevant key to enable real calls.
+    use_llm: bool = False
+    openai_api_key: str | None = None
+    anthropic_api_key: str | None = None
+    extraction_model: str = Field(
+        default="gpt-5.4-mini",
+        description="OpenAI model used for structured extraction. Override via env if your "
+        "deployment exposes an internal alias (for example a 'GPT-5.5 mini' alias).",
+    )
+    extraction_adjudicator_model: str = "gpt-5.5"
+    narrative_model: str = "claude-opus-4-7"
+    narrative_fallback_model: str = "claude-sonnet-4-6"
+
     http_timeout_seconds: float = 30.0
     http_max_retries: int = 4
 

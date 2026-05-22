@@ -22,6 +22,12 @@ dev = [
     "respx>=0.21",
     "ruff>=0.5",
 ]
+# Real LLM providers are optional: the deterministic stub keeps the pipeline
+# working without external SDKs. Install when MEDFUEL_USE_LLM=1.
+llm = [
+    "openai>=1.40",
+    "anthropic>=0.34",
+]
 
 [build-system]
 requires = ["setuptools>=68"]

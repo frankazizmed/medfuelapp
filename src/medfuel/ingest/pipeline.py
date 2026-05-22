@@ -21,6 +21,8 @@ from medfuel.adapters import (
 )
 from medfuel.db.registry import DocumentRegistry
 from medfuel.db.session import get_sessionmaker
+from medfuel.extract import ExtractionOrchestrator
+from medfuel.models.extraction import ReportPlan
 from medfuel.models.schemas import (
     CompanyIdentity,
     DiscoveryResult,
@@ -28,6 +30,8 @@ from medfuel.models.schemas import (
     RawSourceRecord,
     SourceType,
 )
+from medfuel.render import ReportBuilder
+from medfuel.verify import Verifier
 
 log = logging.getLogger(__name__)
 
@@ -97,8 +101,10 @@ async def run_discovery(
     scope: JurisdictionScope,
     job_id: str | None = None,
     requested_pages: int = 6,
+    max_pages: int = 10,
     pipeline: DiscoveryPipeline | None = None,
     session: Session | None = None,
+    build_report: bool = True,
 ) -> DiscoveryResult:
     """Orchestrate a single discovery run end-to-end.
 
@@ -137,6 +143,42 @@ async def run_discovery(
         new_count, dup_count = registry.persist_records(
             company.company_id, job_id, records
         )
+        session.commit()
+
+        events_persisted = 0
+        claims_persisted = 0
+        report_id: str | None = None
+
+        if build_report:
+            extractor_orch = ExtractionOrchestrator()
+            candidate_pairs = await extractor_orch.run(
+                session=session, company_id=company.company_id, job_id=job_id
+            )
+            session.commit()
+
+            verifier = Verifier(session)
+            verification = verifier.run(
+                company_id=company.company_id,
+                job_id=job_id,
+                candidate_pairs=candidate_pairs,
+            )
+            events_persisted = len(verification.events)
+            claims_persisted = len(verification.claims)
+            session.commit()
+
+            builder = ReportBuilder(session)
+            report_row = await builder.build(
+                company_id=company.company_id,
+                job_id=job_id,
+                plan=ReportPlan(
+                    company_id=company.company_id,
+                    requested_pages=requested_pages,
+                    max_pages=max_pages,
+                ),
+            )
+            report_id = report_row.report_id
+            session.commit()
+
         result = DiscoveryResult(
             company_id=company.company_id,
             job_id=job_id,
@@ -145,6 +187,9 @@ async def run_discovery(
             records_persisted_duplicate=dup_count,
             by_source=by_source,
             errors=errors,
+            events_persisted=events_persisted,
+            claims_persisted=claims_persisted,
+            report_id=report_id,
         )
         registry.update_job(
             job_id,

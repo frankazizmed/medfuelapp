@@ -90,3 +90,6 @@ class DiscoveryResult(BaseModel):
     records_persisted_duplicate: int
     by_source: dict[SourceType, int] = Field(default_factory=dict)
     errors: list[str] = Field(default_factory=list)
+    events_persisted: int = 0
+    claims_persisted: int = 0
+    report_id: str | None = None
