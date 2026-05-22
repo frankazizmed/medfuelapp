@@ -1,0 +1,23 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  background: #f7f8fb;
+  color: #1f2433;
+  font-family: Inter, system-ui, sans-serif;
+}
+
+@page {
+  size: A4;
+  margin: 0;
+}
+
+@media print {
+  body {
+    background: white;
+  }
+  .no-print {
+    display: none !important;
+  }
+}

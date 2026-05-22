@@ -1,0 +1,47 @@
+[project]
+name = "medfuel-backend"
+version = "0.1.0"
+description = "MedFuel — Clinical Evidence Intelligence Engine (island)"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.111",
+    "uvicorn[standard]>=0.30",
+    "pydantic>=2.7",
+    "pydantic-settings>=2.3",
+    "httpx>=0.27",
+    "sqlalchemy[asyncio]>=2.0",
+    "asyncpg>=0.29",
+    "alembic>=1.13",
+    "anthropic>=0.34",
+    "openai>=1.40",
+    "pymupdf>=1.24",
+]
+
+[project.optional-dependencies]
+ocr = ["pillow>=10.0", "pytesseract>=0.3.10"]
+pdf-export = ["playwright>=1.45"]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.5",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["clinical_evidence*", "host_harness*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["clinical_evidence/tests"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = ["E501"]
