@@ -18,6 +18,17 @@ class SourceType(str, Enum):
     PUBMED = "pubmed"
     COMPANY = "company"
     INVESTOR_DECK = "investor_deck"
+    # IP intelligence sources. Keep ordered with regulatory sources so
+    # OFFICIAL_RANK below is the single source of truth for citation weight.
+    PATENTSVIEW = "patentsview"
+    GOOGLE_PATENTS = "google_patents"
+    EPO = "epo"
+    WIPO = "wipo"
+    USPTO_ASSIGNMENT = "uspto_assignment"
+    PTAB = "ptab"
+    LITIGATION = "litigation"
+    SEC_IP = "sec_ip"
+    COMPANY_IP = "company_ip"
 
 
 # Source ranking (1 = highest authority, 5 = lowest). Drives later signal scoring.
@@ -32,6 +43,16 @@ OFFICIAL_RANK: dict[SourceType, int] = {
     SourceType.PUBMED: 2,
     SourceType.COMPANY: 4,
     SourceType.INVESTOR_DECK: 5,
+    # IP sources: patent offices and tribunals at rank 1; aggregators at 2-3.
+    SourceType.EPO: 1,
+    SourceType.WIPO: 1,
+    SourceType.USPTO_ASSIGNMENT: 1,
+    SourceType.PTAB: 1,
+    SourceType.LITIGATION: 1,
+    SourceType.PATENTSVIEW: 2,
+    SourceType.SEC_IP: 2,
+    SourceType.GOOGLE_PATENTS: 3,
+    SourceType.COMPANY_IP: 4,
 }
 
 

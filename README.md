@@ -1,9 +1,15 @@
-# MedFuel — Regulatory Intelligence Pipeline
+# MedFuel — Regulatory + IP Intelligence Pipeline
 
-End-to-end regulatory diligence engine built per the MedFuel design doc.
-Phases 1 (connectors), 2 (extraction + verification), and 3 (scoring +
-pagination + narrative + reports) are implemented; the pipeline runs
-end-to-end without external LLM keys via deterministic fallbacks.
+End-to-end life-sciences diligence engine. Two parallel modules share
+one registry, citations engine, and narrator:
+
+- **Regulatory** (phases 1-3): FDA / EMA / MHRA / PMDA / SEC /
+  ClinicalTrials / USPTO / PubMed connectors, rule + LLM extraction,
+  verification, 6-page institutional report.
+- **IP Intelligence** (phase 4): USPTO / PatentsView / Google Patents
+  / EPO / USPTO Assignments / PTAB / litigation connectors, claim
+  parsing, family construction, six-framework scoring + signal/noise
+  filter, 5-page institutional IP diligence narrative.
 
 ## What the system does
 
@@ -84,8 +90,53 @@ GET  /v1/regulatory/reports/{report_id}       # layout plan + confidence summary
 GET  /v1/regulatory/reports/{report_id}/narrative   # plain markdown
 GET  /v1/regulatory/reports/{report_id}/citations   # full inline citation table
 POST /v1/regulatory/reports/{report_id}/rerender    # rebuild at a new page budget
+
+POST /v1/ip/jobs                              # 202 + job_id, IP discovery + report
+GET  /v1/ip/jobs/{job_id}                     # IP job status + summary
+GET  /v1/ip/reports/{report_id}               # IP layout plan + portfolio summary
+GET  /v1/ip/reports/{report_id}/narrative     # IP markdown narrative
+GET  /v1/ip/reports/{report_id}/citations     # IP citation table (patent / tribunal)
+GET  /v1/ip/reports/{report_id}/findings      # ranked IPFinding list
+GET  /v1/ip/companies/{company_id}/families   # patent families with framework scores
+POST /v1/ip/reports/{report_id}/rerender      # rerun at a different page budget
+
 GET  /health
 ```
+
+## IP Intelligence Engine
+
+```
+Company request
+  → IP source adapters (USPTO, PatentsView, Google Patents, EPO,
+    USPTO Assignments, PTAB, litigation)
+  → document registry (same dedupe + audit as regulatory)
+  → rule-based IP extraction (claim parsing, classification, breadth)
+  → family construction (parent-pointer + heuristic clustering)
+  → verification (VERIFIED / REPORTED / INFERRED per family)
+  → six-framework scoring per family:
+      claim strength, moat, commercialization, differentiation,
+      FTO risk, portfolio quality, exclusivity, strategic value
+  → cross-framework signal score + signal/noise filter
+  → finding builder (5 categories × 1 finding/family on high signal,
+    1 table-only stub on low signal)
+  → adaptive 5→7→8 page layout (expand on omitted_high_signal > 10%
+    or omitted critical FTO findings)
+  → IP narrative renderer (Claude Opus 4.7 in prod; stub in CI)
+  → persisted IPReportRunRow + citations table + REST endpoints
+```
+
+### Five-page architecture
+
+```
+1. IP Executive Summary                  (220-300 words)
+2. Portfolio Architecture                (200-280 words)
+3. Claim Strength and Moat               (220-300 words)
+4. Commercial and Competitive Implications (200-280 words)
+5. Key Risks and FTO                     (200-280 words)
+```
+
+Adaptive expansion appends overflow into the section with the largest
+remaining high-signal pool — soft cap 7 pages, hard cap 8.
 
 ## Quickstart
 
@@ -121,20 +172,34 @@ escalates whenever at least one official-rank document supports an event.
 src/medfuel/
   config.py             env-driven settings
   models/
-    schemas.py          CompanyIdentity, RawSourceRecord, ...
+    schemas.py          CompanyIdentity, RawSourceRecord, SourceType...
     extraction.py       CandidateEvent, RegulatoryEvent, VerifiedClaim, ReportPlan
   db/                   SQLAlchemy ORM + registry + audit stream
   http/client.py        RateLimitedClient + per-host RateLimiter
-  adapters/             one adapter per source; SourceAdapter ABC at base.py
+  adapters/             one adapter per regulatory source
   llm/                  LLM client abstraction; OpenAI / Anthropic / Stub impls
   extract/              rule + LLM extractors, normalize, dedupe, orchestrator
-  verify/               verifier + citation engine
-  score/                signal score formula and critical-event classification
-  render/               sections, layout, narrative, report builder
-  ingest/pipeline.py    fan-out discovery + chained Phase 2/3
-  api/routes.py         FastAPI routes
+  verify/               regulatory verifier + citation engine
+  score/                regulatory signal score
+  render/               regulatory layout + narrative + report builder
+  ingest/pipeline.py    regulatory fan-out discovery + chained Phase 2/3
+  api/routes.py         /v1/regulatory routes
+  ip/                   IP Intelligence Engine (Phase 4)
+    models.py             PatentFamily, PatentClaim, IPFinding, FrameworkScores
+    db_orm.py             IP-side persistence tables (shared Base)
+    adapters/             PatentsView, Google Patents, EPO, USPTO Assignments,
+                          PTAB, litigation, USPTOAdapter passthrough
+    extract/              claim parser, family builder, rule extractor, orchestrator
+    verify/               VERIFIED / REPORTED / INFERRED classifier
+    score/                six framework scorers + signal score + noise filter
+    render/               5-page IP layout, findings builder, narrative, citations,
+                          end-to-end IPReportBuilder
+    ingest/pipeline.py    IP discovery pipeline (parallel adapter fan-out)
+    api/routes.py         /v1/ip routes
   main.py               create_app() with lifespan init_db
-tests/                  pytest + respx + in-memory SQLite, 43 tests
+tests/                  pytest + respx + in-memory SQLite, 75 tests
+  ip/                     IP-side tests (frameworks, claim parser, family builder,
+                          layout, verifier, end-to-end pipeline, API)
 ```
 
 ## Operator notes

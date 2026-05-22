@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     uspto_api_key: str | None = None
     firecrawl_api_key: str | None = None
     firecrawl_base_url: str = "https://api.firecrawl.dev"
+    # IP Intelligence Engine. EPO bearer token enables the EPO adapter;
+    # without it the EPO adapter is a no-op and US-only IP coverage remains.
+    epo_api_key: str | None = None
 
     # LLM routing. Off by default so CI and local dev run with the deterministic
     # stubs. Set MEDFUEL_USE_LLM=1 plus the relevant key to enable real calls.

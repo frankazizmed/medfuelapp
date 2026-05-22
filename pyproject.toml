@@ -52,3 +52,4 @@ ignore = ["E501", "UP042"]  # UP042: keep `str, Enum` for JSON-serializable enum
 [tool.ruff.lint.per-file-ignores]
 # FastAPI uses `Depends()` as default value by design.
 "src/medfuel/api/*.py" = ["B008"]
+"src/medfuel/ip/api/*.py" = ["B008"]
