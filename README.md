@@ -88,6 +88,30 @@ GET  /v1/regulatory/sources/health            # adapter configuration matrix
 GET  /health
 ```
 
+## Unstructured ingest (Phase 4+)
+
+- **PII / PHI redaction** runs over chunk text before persistence
+  (`extract/redaction.py`). Pattern-based starter for emails, phones, SSNs,
+  MRNs, DOB, and PANs. Explicitly documented as a placeholder for a
+  HIPAA-compliant Safe Harbor or Expert Determination step — production
+  deployments accepting PHI uploads must replace this module.
+- **Chunking** (`extract/chunking.py`) — sliding-window over 800-char
+  windows with 100-char overlap (tunable via env). Only runs over the
+  unstructured source types (MHRA, PMDA, company web, investor decks);
+  structured regulator records skip this stage by design.
+- **Embeddings** (`extract/embeddings.py`) — chunk + redact + embed +
+  persist as `DocumentChunkRow`. JSON-stored vectors on SQLite; the
+  Postgres production path swaps to a pgvector `vector(1536)` column.
+  Idempotent: documents that already have chunks are skipped.
+- **LLM extractor** (`extract/llm_extractor.py`) — drives OpenAI
+  Structured Outputs over the chunked text, returns
+  `CandidateEvent`s with normalized agencies, dates, and event types.
+  LLM-derived events are capped at evidence_strength=3 so regulator
+  records still outrank model-derived claims at scoring time.
+- **Vector retrieval** (`verify/retrieval.py`) — exact in-memory cosine
+  similarity (SQLite); same return shape as the future pgvector `<=>`
+  path, so the verifier consumer is untouched on migration.
+
 ## Hardening (Phase 4)
 
 - **Structured JSON logging** with per-job context (`job_id`, `company_id`,

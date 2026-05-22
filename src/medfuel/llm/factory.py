@@ -4,6 +4,7 @@ import logging
 
 from medfuel.config import get_settings
 from medfuel.llm.base import ExtractorLLM, LLMUnavailableError, NarratorLLM
+from medfuel.llm.embedder import Embedder, StubEmbedder
 from medfuel.llm.stub import StubExtractorLLM, StubNarratorLLM
 
 log = logging.getLogger(__name__)
@@ -44,3 +45,17 @@ def get_narrator_llm() -> NarratorLLM:
     except LLMUnavailableError as exc:
         log.warning("Anthropic narrator unavailable, falling back to stub: %s", exc)
         return StubNarratorLLM()
+
+
+def get_embedder() -> Embedder:
+    """Return an embedder per settings, falling back to the stub."""
+    settings = get_settings()
+    if not settings.use_llm:
+        return StubEmbedder()
+    try:
+        from medfuel.llm.embedder import OpenAIEmbedder  # noqa: PLC0415
+
+        return OpenAIEmbedder(model=settings.embedding_model, api_key=settings.openai_api_key)
+    except LLMUnavailableError as exc:
+        log.warning("OpenAI embedder unavailable, falling back to stub: %s", exc)
+        return StubEmbedder()

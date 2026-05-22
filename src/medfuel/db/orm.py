@@ -186,3 +186,30 @@ class AuditEvent(Base):
     before_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     after_hash: Mapped[str | None] = mapped_column(String, nullable=True)
     detail: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+
+class DocumentChunkRow(Base):
+    """Chunked text + embedding for unstructured documents.
+
+    On SQLite the embedding is a JSON list of floats so the rest of the
+    pipeline runs hermetically. On Postgres production, swap the JSON
+    column for a pgvector ``vector(1536)`` column and the cosine math in
+    verify.retrieval can move to a single SQL `<=>` query.
+    """
+
+    __tablename__ = "document_chunks"
+
+    chunk_id: Mapped[str] = mapped_column(String, primary_key=True)
+    source_doc_id: Mapped[str] = mapped_column(
+        ForeignKey("source_documents.source_doc_id"), index=True
+    )
+    company_id: Mapped[str] = mapped_column(ForeignKey("companies.company_id"), index=True)
+    chunk_index: Mapped[int] = mapped_column(Integer)
+    char_start: Mapped[int] = mapped_column(Integer)
+    char_end: Mapped[int] = mapped_column(Integer)
+    chunk_text: Mapped[str] = mapped_column(Text)
+    redaction_count: Mapped[int] = mapped_column(Integer, default=0)
+    embedding: Mapped[list[float] | None] = mapped_column(JSON, nullable=True)
+    embedding_model: Mapped[str | None] = mapped_column(String, nullable=True)
+    embedding_dim: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)

@@ -36,8 +36,12 @@ class Settings(BaseSettings):
     extraction_adjudicator_model: str = "gpt-5.5"
     narrative_model: str = "claude-opus-4-7"
     narrative_fallback_model: str = "claude-sonnet-4-6"
+    embedding_model: str = "text-embedding-3-small"
 
     log_level: str = "INFO"
+
+    chunk_char_size: int = 800
+    chunk_char_overlap: int = 100
 
     http_timeout_seconds: float = 30.0
     http_max_retries: int = 4

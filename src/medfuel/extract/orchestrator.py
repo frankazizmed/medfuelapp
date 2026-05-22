@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from medfuel.db.orm import ExtractionRow, SourceDocumentRow
 from medfuel.extract.base import Extractor
+from medfuel.extract.llm_extractor import LLMExtractor
 from medfuel.extract.rules import RuleBasedExtractor
 from medfuel.models import CandidateEvent, RawSourceRecord, SourceType
 
@@ -18,7 +19,7 @@ class ExtractionOrchestrator:
     """Run all configured extractors over a company's source documents."""
 
     def __init__(self, extractors: list[Extractor] | None = None):
-        self._extractors = extractors or [RuleBasedExtractor()]
+        self._extractors = extractors or [RuleBasedExtractor(), LLMExtractor()]
 
     async def run(
         self,

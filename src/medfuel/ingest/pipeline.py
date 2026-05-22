@@ -21,7 +21,7 @@ from medfuel.adapters import (
 )
 from medfuel.db.registry import DocumentRegistry
 from medfuel.db.session import get_sessionmaker
-from medfuel.extract import ExtractionOrchestrator
+from medfuel.extract import ChunkEmbedPipeline, ExtractionOrchestrator
 from medfuel.models.extraction import ReportPlan
 from medfuel.models.schemas import (
     CompanyIdentity,
@@ -154,6 +154,17 @@ async def run_discovery(
         report_id: str | None = None
 
         if build_report:
+            with span("embed.run"):
+                embed_pipeline = ChunkEmbedPipeline()
+                try:
+                    chunks_added = await embed_pipeline.run(
+                        session=session, company_id=company.company_id
+                    )
+                finally:
+                    await embed_pipeline.aclose()
+                if chunks_added:
+                    session.commit()
+
             extractor_orch = ExtractionOrchestrator()
             with span("extract.run"):
                 candidate_pairs = await extractor_orch.run(
