@@ -1,0 +1,40 @@
+# Render Blueprint — provisions the API + managed Postgres in one step.
+# In Render: New → Blueprint → connect this repo → it reads render.yaml.
+# After the first apply, pushes to `main` auto-deploy (autoDeploy: true).
+#
+# Secrets marked `sync: false` are NOT stored in git — set them in the
+# Render dashboard (Environment tab) after the service is created.
+services:
+  - type: web
+    name: medfuel-api
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Contact identity required by SEC / NCBI. Set your real address.
+      - key: MEDFUEL_CONTACT_EMAIL
+        sync: false
+      - key: MEDFUEL_USER_AGENT
+        value: "MedFuel/0.1 (set-your-contact@org.com)"
+      # Wired automatically from the managed Postgres below.
+      - key: MEDFUEL_DATABASE_URL
+        fromDatabase:
+          name: medfuel-db
+          property: connectionString
+      # LLM providers off by default; flip to "1" and set the keys to enable.
+      - key: MEDFUEL_USE_LLM
+        value: "0"
+      - key: MEDFUEL_OPENAI_API_KEY
+        sync: false
+      - key: MEDFUEL_ANTHROPIC_API_KEY
+        sync: false
+      - key: MEDFUEL_FIRECRAWL_API_KEY
+        sync: false
+
+databases:
+  - name: medfuel-db
+    plan: basic-256mb
+    databaseName: medfuel
+    user: medfuel
