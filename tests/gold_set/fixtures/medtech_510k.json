@@ -1,0 +1,43 @@
+{
+  "archetype": "medtech company with 510(k) clearance history",
+  "company": {
+    "name": "BetaMed",
+    "ticker": "BETA",
+    "cik": "2222222"
+  },
+  "records": [
+    {
+      "source_type": "fda",
+      "jurisdiction": "US",
+      "url": "https://api.fda.gov/device/510k.json?stub=beta-001",
+      "title": "510(k) K233001",
+      "payload": {
+        "k_number": "K233001",
+        "device_name": "BetaMed Cardiac Monitor",
+        "applicant": "BetaMed",
+        "decision_date": "20230701",
+        "decision_description": "Substantially Equivalent"
+      }
+    },
+    {
+      "source_type": "fda",
+      "jurisdiction": "US",
+      "url": "https://api.fda.gov/device/510k.json?stub=beta-002",
+      "title": "510(k) K244002",
+      "payload": {
+        "k_number": "K244002",
+        "device_name": "BetaMed Cardiac Monitor MX2",
+        "applicant": "BetaMed",
+        "decision_date": "20240310",
+        "decision_description": "Substantially Equivalent"
+      }
+    }
+  ],
+  "expected": {
+    "min_events": 2,
+    "required_event_types": ["clearance"],
+    "required_agencies": ["FDA"],
+    "min_high_signal_claims": 1,
+    "must_include_asset_substring": "Cardiac Monitor"
+  }
+}

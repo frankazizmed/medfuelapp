@@ -1,0 +1,64 @@
+{
+  "archetype": "small-cap biotech with one late-stage FDA asset",
+  "company": {
+    "name": "Acme Therapeutics",
+    "ticker": "ACME",
+    "cik": "1234567",
+    "aliases": ["Acme Tx"]
+  },
+  "records": [
+    {
+      "source_type": "fda",
+      "jurisdiction": "US",
+      "url": "https://api.fda.gov/drug/drugsfda.json?stub=acme-001",
+      "title": "Drugs@FDA: Acmenil NDA approval",
+      "payload": {
+        "application_number": "NDA216001",
+        "openfda": {"brand_name": ["Acmenil"]},
+        "submissions": [
+          {
+            "submission_status": "AP",
+            "submission_status_date": "20250115",
+            "submission_class_code": "TYPE 1"
+          }
+        ]
+      }
+    },
+    {
+      "source_type": "clinicaltrials",
+      "jurisdiction": "GLOBAL",
+      "url": "https://clinicaltrials.gov/study/NCT05000001",
+      "title": "Acmenil Phase 3 ENABLE Trial",
+      "payload": {
+        "protocolSection": {
+          "identificationModule": {
+            "nctId": "NCT05000001",
+            "briefTitle": "Phase 3 ENABLE Trial of Acmenil"
+          },
+          "statusModule": {
+            "overallStatus": "COMPLETED",
+            "lastUpdatePostDateStruct": {"date": "2024-12-10"}
+          }
+        }
+      }
+    },
+    {
+      "source_type": "sec",
+      "jurisdiction": "US",
+      "url": "https://www.sec.gov/Archives/edgar/data/1234567/000123456725000001/acme-8k.htm",
+      "title": "8-K announcing approval",
+      "payload": {
+        "form": "8-K",
+        "filingDate": "2025-01-16",
+        "accession": "0001234567-25-000001"
+      }
+    }
+  ],
+  "expected": {
+    "min_events": 3,
+    "required_event_types": ["approval", "trial_update", "offering_or_filing"],
+    "required_agencies": ["FDA", "ClinicalTrials.gov", "SEC"],
+    "min_high_signal_claims": 1,
+    "must_include_asset_substring": "Acmenil"
+  }
+}

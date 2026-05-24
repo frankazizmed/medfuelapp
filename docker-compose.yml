@@ -1,0 +1,26 @@
+# Local / single-host deployment. For production, point MEDFUEL_DATABASE_URL
+# at managed Postgres/Supabase instead of the bundled SQLite volume, and set
+# the API keys via your platform's secret store rather than a committed .env.
+services:
+  api:
+    build:
+      context: .
+      args:
+        INSTALL_LLM: "0"  # set to "1" to bake in OpenAI/Anthropic SDKs
+    image: medfuel-api:latest
+    ports:
+      - "8000:8000"
+    environment:
+      MEDFUEL_CONTACT_EMAIL: ${MEDFUEL_CONTACT_EMAIL:-contact@example.com}
+      MEDFUEL_USER_AGENT: ${MEDFUEL_USER_AGENT:-MedFuel/0.1 (contact@example.com)}
+      MEDFUEL_DATABASE_URL: ${MEDFUEL_DATABASE_URL:-sqlite:////data/medfuel.sqlite}
+      MEDFUEL_USE_LLM: ${MEDFUEL_USE_LLM:-0}
+      MEDFUEL_OPENAI_API_KEY: ${MEDFUEL_OPENAI_API_KEY:-}
+      MEDFUEL_ANTHROPIC_API_KEY: ${MEDFUEL_ANTHROPIC_API_KEY:-}
+      MEDFUEL_FIRECRAWL_API_KEY: ${MEDFUEL_FIRECRAWL_API_KEY:-}
+    volumes:
+      - medfuel_data:/data
+    restart: unless-stopped
+
+volumes:
+  medfuel_data:

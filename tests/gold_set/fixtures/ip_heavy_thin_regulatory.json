@@ -1,0 +1,48 @@
+{
+  "archetype": "IP-heavy posture with thin regulatory footprint",
+  "company": {
+    "name": "DeltaBio",
+    "cik": "3333333"
+  },
+  "records": [
+    {
+      "source_type": "uspto",
+      "jurisdiction": "US",
+      "url": "https://patents.google.com/patent/US11000001",
+      "title": "Method for delta therapy",
+      "payload": {
+        "patentNumber": "11000001",
+        "inventionTitle": "Method for delta therapy",
+        "patentDate": "2023-05-02"
+      }
+    },
+    {
+      "source_type": "uspto",
+      "jurisdiction": "US",
+      "url": "https://patents.google.com/patent/US11000002",
+      "title": "Delta compound family",
+      "payload": {
+        "patentNumber": "11000002",
+        "inventionTitle": "Delta compound family",
+        "patentDate": "2024-02-14"
+      }
+    },
+    {
+      "source_type": "sec",
+      "jurisdiction": "US",
+      "url": "https://www.sec.gov/Archives/edgar/data/3333333/000333333324000001/delta-s1.htm",
+      "title": "S-1 IPO filing",
+      "payload": {
+        "form": "S-1",
+        "filingDate": "2024-04-20",
+        "accession": "0003333333-24-000001"
+      }
+    }
+  ],
+  "expected": {
+    "min_events": 3,
+    "required_event_types": ["patent_event", "offering_or_filing"],
+    "required_agencies": ["USPTO", "SEC"],
+    "min_high_signal_claims": 0
+  }
+}
