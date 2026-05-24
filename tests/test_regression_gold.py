@@ -124,11 +124,11 @@ async def test_gold_archetype_extraction_and_scoring(fixture, db_session):
         f"high-signal claims, got {len(high_signal)}"
     )
 
-    # Report must build, render the six-section baseline, and produce
+    # Report must build, render the four-section baseline, and produce
     # a confidence summary covering every persisted claim.
     report = db_session.get(ReportRunRow, result.report_id)
     assert report is not None
-    assert report.pages_rendered >= 6
+    assert report.pages_rendered >= 4
     total_confidence = sum(report.confidence_summary.values())
     assert total_confidence == len(claims)
     assert "Executive summary" in report.narrative_text

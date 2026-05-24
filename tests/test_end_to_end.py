@@ -136,7 +136,7 @@ async def test_full_pipeline_produces_events_claims_and_report(db_session):
     # Report content has the section template.
     report = db_session.get(ReportRunRow, result.report_id)
     assert report is not None
-    assert report.pages_rendered == 6
+    assert report.pages_rendered == 4
     assert "Executive summary" in report.narrative_text
-    assert "Pathway matrix" in report.narrative_text
+    assert "Pathway and timeline" in report.narrative_text
     assert report.confidence_summary["high"] + report.confidence_summary["medium"] >= 1

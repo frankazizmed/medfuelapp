@@ -32,8 +32,10 @@ def get_db() -> Session:
 
 
 class ReportPlanIn(BaseModel):
-    requested_pages: int = Field(default=6, ge=1, le=10)
-    max_pages: int = 10
+    # Aim is 4 pages; the layout engine may expand up to max_pages only when
+    # critical items would otherwise be omitted.
+    requested_pages: int = Field(default=4, ge=1, le=8)
+    max_pages: int = 8
     english_only: bool = True
 
 
@@ -152,8 +154,8 @@ class CitationListResponse(BaseModel):
 
 
 class RerenderRequest(BaseModel):
-    requested_pages: int = Field(default=6, ge=1, le=10)
-    max_pages: int = 10
+    requested_pages: int = Field(default=4, ge=1, le=8)
+    max_pages: int = 8
 
 
 @router.get("/reports/{report_id}", response_model=ReportResponse)

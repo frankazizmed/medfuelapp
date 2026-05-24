@@ -16,7 +16,7 @@ Company request
   → dedupe by semantic event key
   → verify (rule-based support classification, confidence)
   → score (relevance/evidence/uniqueness/investor weights → 0–100 signal)
-  → layout (six-page baseline; mechanical expansion up to ten pages)
+  → layout (four-page aim; mechanical expansion up to eight pages when warranted)
   → citations (per-claim inline numbering, persisted per report run)
   → narrative (Claude Opus 4.7 in production; templated stub in CI)
   → persisted report run + REST endpoints for retrieval and rerender
@@ -57,16 +57,15 @@ Company request
 ## Scoring, layout, narrative, reports (Phase 3)
 
 - **Signal score** = `100 × (0.30·relevance + 0.30·evidence + 0.15·uniqueness + 0.25·investor)` per the design doc.
-- **Six-page baseline** with explicit per-section word budgets:
-  - Executive summary (260–320 words)
-  - Pathway matrix (180–240)
-  - Timeline (160–220)
-  - Trials and evidence (280–360)
-  - Safety, quality, compliance (260–340)
+- **Four-page baseline** (the aim — not a cap) with explicit per-section
+  word budgets:
+  - Executive summary (280–340 words)
+  - Pathway and timeline (260–340)
+  - Trials, safety and compliance (320–420)
   - Implications and watchlist (220–300)
-- **Mechanical pagination engine** expands the baseline by +1 page per
-  trigger (omitted critical items, omitted high-signal share > 10%),
-  capped at ten pages.
+- **Mechanical pagination engine** expands the four-page aim by +1 page per
+  trigger (omitted critical items, omitted high-signal share > 10%) only
+  when warranted, capped at eight pages.
 - **Citation engine** assigns stable inline numbers per claim and
   persists `citations` rows keyed to the report run.
 - **Narrative renderer** drives the configured `NarratorLLM` (Claude

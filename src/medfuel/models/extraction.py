@@ -83,8 +83,8 @@ class VerifiedClaim(BaseModel):
 
 class ReportPlan(BaseModel):
     company_id: str
-    requested_pages: int = 6
-    max_pages: int = 10
+    requested_pages: int = 4
+    max_pages: int = 8
     english_only: bool = True
     style: Literal["institutional_print"] = "institutional_print"
     include_timeline: bool = True

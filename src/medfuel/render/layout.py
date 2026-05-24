@@ -72,8 +72,8 @@ def plan_layout(
     *,
     events: list[RegulatoryEvent],
     claims: list[VerifiedClaim],
-    requested_pages: int = 6,
-    max_pages: int = 10,
+    requested_pages: int = 4,
+    max_pages: int = 8,
 ) -> LayoutPlan:
     """Mechanical pagination per the design's expansion rules.
 
