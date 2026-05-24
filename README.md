@@ -100,6 +100,39 @@ GET  /v1/regulatory/sources/health            # adapter configuration matrix
 GET  /health
 ```
 
+## Deployment
+
+The app ships as a container. It binds `$PORT` (default 8000) and exposes
+`/health` for load-balancer checks.
+
+```bash
+# Local / single host
+docker compose up --build           # http://localhost:8000/health
+
+# Any container host (Fly, Render, Cloud Run, ECS, a VM, ...)
+docker build -t medfuel-api .
+docker run -p 8000:8000 \
+  -e MEDFUEL_CONTACT_EMAIL=you@org.com \
+  -e MEDFUEL_DATABASE_URL=postgresql+psycopg://USER:PASS@HOST:5432/medfuel \
+  medfuel-api
+```
+
+Production checklist:
+
+1. **Database** — set `MEDFUEL_DATABASE_URL` to managed Postgres/Supabase
+   (not the bundled SQLite volume). Apply `policies/supabase.sql` for RLS.
+   `init_db()` bootstraps tables on startup; formalize with Alembic before
+   the first schema change.
+2. **Secrets** — provide `MEDFUEL_*` keys via the platform secret store, never
+   a committed `.env`. Set `MEDFUEL_USE_LLM=1` plus `MEDFUEL_OPENAI_API_KEY`
+   and `MEDFUEL_ANTHROPIC_API_KEY` to enable live extraction/narrative
+   (build the image with `--build-arg INSTALL_LLM=1`).
+3. **Workers** — the discovery pipeline currently runs in FastAPI
+   `BackgroundTasks`; move to Redis Streams / Celery (per the design) before
+   high concurrency.
+4. **Observability** — logs are structured JSON with per-job correlation;
+   wire an OTLP endpoint to turn the `span()` hooks into real traces.
+
 ## Unstructured ingest (Phase 4+)
 
 - **PII / PHI redaction** runs over chunk text before persistence
