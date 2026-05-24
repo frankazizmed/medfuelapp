@@ -10,6 +10,7 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     plan: starter
+    branch: main
     healthCheckPath: /health
     autoDeploy: true
     envVars:
