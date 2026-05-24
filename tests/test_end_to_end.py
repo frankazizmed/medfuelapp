@@ -140,3 +140,13 @@ async def test_full_pipeline_produces_events_claims_and_report(db_session):
     assert "Executive summary" in report.narrative_text
     assert "Pathway and timeline" in report.narrative_text
     assert report.confidence_summary["high"] + report.confidence_summary["medium"] >= 1
+
+    # Signal-vs-noise gate ran and is reported in the layout plan.
+    noise = report.layout_plan["noise"]
+    assert noise["input"] == len(claims)
+    assert noise["company_share_cap"] == 0.15
+    # Every tier count is accounted for (nothing silently lost).
+    accounted = (
+        noise["must_include"] + noise["narrative"] + noise["table_only"] + noise["dropped"]
+    )
+    assert accounted == noise["input"]

@@ -6,12 +6,8 @@ from medfuel.models import RegulatoryEvent, VerifiedClaim
 from medfuel.render.sections import SECTION_BUDGETS, SECTION_THEMES, SectionBudget
 from medfuel.score.signal import is_critical
 
-# Signal-score thresholds from the design doc. Kept module-level so a future
-# scoring tweak only requires changing one constant.
-SCORE_MUST_INCLUDE = 85.0
-SCORE_PREFER = 75.0
-SCORE_TABLE_ONLY = 55.0
-
+# Claims at or above this score count as "high signal" for the expansion
+# triggers. The full threshold-band enforcement lives in score.noise.
 HIGH_SIGNAL_THRESHOLD = 75.0
 
 
@@ -22,6 +18,7 @@ class SectionPlan:
     budget: SectionBudget
     claim_ids: list[str] = field(default_factory=list)
     overflow_claim_ids: list[str] = field(default_factory=list)
+    table_claim_ids: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -53,9 +50,12 @@ def _claims_by_event(
 def _claims_for_section(
     section: SectionBudget,
     pool: dict[str, tuple[RegulatoryEvent, VerifiedClaim]],
+    eligible: set[str] | None = None,
 ) -> list[str]:
     themes = SECTION_THEMES.get(section.slug, ())
     candidates = list(pool.items())
+    if eligible is not None:
+        candidates = [(cid, ec) for cid, ec in candidates if cid in eligible]
     if themes:
         candidates = [
             (cid, (e, c)) for cid, (e, c) in candidates if e.event_type in themes
@@ -74,30 +74,42 @@ def plan_layout(
     claims: list[VerifiedClaim],
     requested_pages: int = 4,
     max_pages: int = 8,
+    table_only_ids: set[str] | None = None,
 ) -> LayoutPlan:
     """Mechanical pagination per the design's expansion rules.
 
-    Builds the six baseline sections, fills each with the highest-signal
-    claims, and then expands one page at a time only when the design's
-    omission triggers are tripped.
+    Builds the baseline sections, fills each with the highest-signal
+    narrative claims, routes table-only claims to a supporting bucket, and
+    then expands one page at a time only when the design's omission triggers
+    are tripped. Claims are expected to be pre-filtered by score.noise; the
+    `table_only_ids` set marks claims that may only appear in tables.
     """
     pool = _claims_by_event(events, claims)
+    table_only_ids = table_only_ids or set()
+    narrative_eligible = {cid for cid in pool if cid not in table_only_ids}
+
+    # Expansion metrics are measured against narrative-eligible claims only —
+    # table-only context never counts as "omitted".
     high_signal_pool = [
-        cid for cid, (_, c) in pool.items() if c.signal_score >= HIGH_SIGNAL_THRESHOLD
+        cid
+        for cid in narrative_eligible
+        if pool[cid][1].signal_score >= HIGH_SIGNAL_THRESHOLD
     ]
-    critical_pool = [
-        cid for cid, (e, _) in pool.items() if is_critical(e)
-    ]
+    critical_pool = [cid for cid in narrative_eligible if is_critical(pool[cid][0])]
 
     sections: list[SectionPlan] = []
     used_claim_ids: set[str] = set()
     for budget in SECTION_BUDGETS:
-        ranked = _claims_for_section(budget, pool)
+        ranked = _claims_for_section(budget, pool, eligible=narrative_eligible)
         # Top three high-signal claims per themed section, top six for the
         # executive summary / implications synthesis sections.
         cap = 6 if not SECTION_THEMES.get(budget.slug) else 3
         picks = [cid for cid in ranked if cid not in used_claim_ids][:cap]
         for cid in picks:
+            used_claim_ids.add(cid)
+        table_ranked = _claims_for_section(budget, pool, eligible=table_only_ids)
+        table_picks = [cid for cid in table_ranked if cid not in used_claim_ids][:6]
+        for cid in table_picks:
             used_claim_ids.add(cid)
         sections.append(
             SectionPlan(
@@ -105,6 +117,7 @@ def plan_layout(
                 title=budget.title,
                 budget=budget,
                 claim_ids=picks,
+                table_claim_ids=table_picks,
             )
         )
 
@@ -130,7 +143,7 @@ def plan_layout(
         best_section: SectionPlan | None = None
         best_remaining: list[str] = []
         for s in sections:
-            ranked = _claims_for_section(s.budget, pool)
+            ranked = _claims_for_section(s.budget, pool, eligible=narrative_eligible)
             remaining = [cid for cid in ranked if cid not in used_claim_ids]
             if remaining and (
                 best_section is None or len(remaining) > len(best_remaining)

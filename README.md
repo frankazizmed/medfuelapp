@@ -57,6 +57,19 @@ Company request
 ## Scoring, layout, narrative, reports (Phase 3)
 
 - **Signal score** = `100 × (0.30·relevance + 0.30·evidence + 0.15·uniqueness + 0.25·investor)` per the design doc.
+- **Signal-vs-noise gate** (`score/noise.py`) — enforced before layout, this
+  is the heart of the diligence engine. Each verified claim is tiered by its
+  score band and run through the design's fluff-elimination rules:
+  - `≥85` must-include · `75–84` narrative · `55–74` supporting tables only ·
+    `<55` dropped (sub-threshold criticals are retained as table context).
+  - Drops claims with no citation candidate.
+  - Drops events older than 10 years unless they anchor exclusivity, labeling,
+    or platform credibility (approval / designation / patent / label change).
+  - Suppresses cosmetic-duplicate claims, keeping the higher-evidence version.
+  - Caps company / investor-deck content at 15% of narrative claims, demoting
+    the excess to tables so management framing cannot dominate.
+  - Every exclusion carries a reason; the full breakdown is persisted in the
+    report's `layout_plan.noise` for audit.
 - **Four-page baseline** (the aim — not a cap) with explicit per-section
   word budgets:
   - Executive summary (280–340 words)

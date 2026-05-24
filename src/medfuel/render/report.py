@@ -13,6 +13,7 @@ from medfuel.db.orm import (
     CompanyRow,
     RegulatoryEventRow,
     ReportRunRow,
+    SourceDocumentRow,
 )
 from medfuel.llm.factory import get_extractor_llm, get_narrator_llm
 from medfuel.models import (
@@ -24,6 +25,7 @@ from medfuel.models import (
 )
 from medfuel.render.layout import plan_layout
 from medfuel.render.narrative import NarrativeRenderer
+from medfuel.score.noise import filter_claims
 from medfuel.verify.citations import build_citation_table
 
 log = logging.getLogger(__name__)
@@ -65,18 +67,28 @@ class ReportBuilder:
         )
         claims = [self._to_claim(r) for r in claims_rows]
 
+        # Signal-vs-noise gate: enforce threshold bands + fluff-elimination
+        # rules BEFORE layout so low-signal, stale, uncited, duplicate, or
+        # company-dominated claims never reach the narrative.
+        doc_ranks = self._doc_ranks(claims)
+        noise = filter_claims(events=events, claims=claims, doc_ranks=doc_ranks)
+        kept_ids = noise.kept_claim_ids()
+        kept_claims = [c for c in claims if c.claim_id in kept_ids]
+
         layout = plan_layout(
             events=events,
-            claims=claims,
+            claims=kept_claims,
             requested_pages=plan.requested_pages,
             max_pages=plan.max_pages,
+            table_only_ids=set(noise.table_claim_ids),
         )
 
         report_id = f"rpt_{uuid.uuid4().hex[:12]}"
+        # Only the claims that survived the noise gate get citations.
         citations, citation_map = build_citation_table(
             session=self.session,
             report_id=report_id,
-            claims=claims,
+            claims=kept_claims,
         )
         # Persist the citation number assignment back onto the claim rows so
         # subsequent rerenders inherit the same numbering.
@@ -94,11 +106,11 @@ class ReportBuilder:
             company_name=company_name,
             layout=layout,
             events={e.event_id: e for e in events},
-            claims={c.claim_id: c for c in claims},
+            claims={c.claim_id: c for c in kept_claims},
             citation_map=citation_map,
         )
 
-        confidence_summary = self._summarize_confidence(claims)
+        confidence_summary = self._summarize_confidence(kept_claims)
 
         row = ReportRunRow(
             report_id=report_id,
@@ -107,7 +119,7 @@ class ReportBuilder:
             pages_requested=layout.pages_requested,
             pages_rendered=layout.pages_rendered,
             adaptive_expansion_triggered=layout.adaptive_expansion_triggered,
-            layout_plan=self._layout_to_dict(layout, citations),
+            layout_plan=self._layout_to_dict(layout, citations, noise),
             narrative_text=narrative,
             confidence_summary=confidence_summary,
             status="complete",
@@ -149,6 +161,19 @@ class ReportBuilder:
             signal_score=row.signal_score,
         )
 
+    def _doc_ranks(self, claims: list[VerifiedClaim]) -> dict[str, int]:
+        doc_ids = sorted({sid for c in claims for sid in c.source_doc_ids})
+        if not doc_ids:
+            return {}
+        rows = (
+            self.session.query(
+                SourceDocumentRow.source_doc_id, SourceDocumentRow.official_rank
+            )
+            .filter(SourceDocumentRow.source_doc_id.in_(doc_ids))
+            .all()
+        )
+        return {sid: rank for sid, rank in rows}
+
     def _write_back_citations(
         self,
         rows: list[ClaimRow],
@@ -166,7 +191,8 @@ class ReportBuilder:
     def _assert_citations_resolve(*, layout, citation_map: dict[str, list[int]]) -> None:
         unresolved: list[str] = []
         for section in layout.sections:
-            for claim_id in section.claim_ids + section.overflow_claim_ids:
+            placed = section.claim_ids + section.overflow_claim_ids + section.table_claim_ids
+            for claim_id in placed:
                 if not citation_map.get(claim_id):
                     unresolved.append(claim_id)
         if unresolved:
@@ -182,7 +208,7 @@ class ReportBuilder:
         return {"high": counter["high"], "medium": counter["medium"], "low": counter["low"]}
 
     @staticmethod
-    def _layout_to_dict(layout, citations) -> dict[str, Any]:
+    def _layout_to_dict(layout, citations, noise) -> dict[str, Any]:
         return {
             "pages_requested": layout.pages_requested,
             "pages_rendered": layout.pages_rendered,
@@ -191,6 +217,7 @@ class ReportBuilder:
             "expansion_reasons": layout.expansion_reasons,
             "omitted_critical_count": layout.omitted_critical_count,
             "omitted_high_signal_share": layout.omitted_high_signal_share,
+            "noise": noise.report(),
             "sections": [
                 {
                     "slug": s.slug,
@@ -199,6 +226,7 @@ class ReportBuilder:
                     "word_max": s.budget.word_max,
                     "claim_ids": s.claim_ids,
                     "overflow_claim_ids": s.overflow_claim_ids,
+                    "table_claim_ids": s.table_claim_ids,
                 }
                 for s in layout.sections
             ],

@@ -48,7 +48,10 @@ class NarrativeRenderer:
             overflow_claims = [
                 claims[cid] for cid in section.overflow_claim_ids if cid in claims
             ]
-            if not section_claims and not overflow_claims:
+            table_claims = [
+                claims[cid] for cid in section.table_claim_ids if cid in claims
+            ]
+            if not section_claims and not overflow_claims and not table_claims:
                 parts.append("_No verified claims placed in this section for this run._\n")
                 continue
 
@@ -60,6 +63,8 @@ class NarrativeRenderer:
                 citation_map=citation_map,
             )
             parts.append(body.rstrip() + "\n")
+            if table_claims:
+                parts.append(self._render_table(table_claims, events, citation_map))
 
         if layout.adaptive_expansion_triggered:
             parts.append(
@@ -69,6 +74,29 @@ class NarrativeRenderer:
                 + "._\n"
             )
         return "\n".join(parts)
+
+    @staticmethod
+    def _render_table(
+        table_claims: list[VerifiedClaim],
+        events: dict[str, RegulatoryEvent],
+        citation_map: dict[str, list[int]],
+    ) -> str:
+        # Lower-signal (55-74) claims appear only as a compact supporting table,
+        # never in the narrative prose — this is the design's signal-vs-noise
+        # rule that mid-tier items get tabulated, not narrated.
+        lines = ["\n_Supporting (mid-signal, table only):_"]
+        for claim in table_claims:
+            event = events.get(claim.event_id)
+            if event is None:
+                continue
+            cites = citation_map.get(claim.claim_id, claim.citation_numbers)
+            cite_tag = " " + " ".join(f"[{n}]" for n in cites) if cites else ""
+            lines.append(
+                f"  - ({event.event_date.isoformat()}) "
+                f"{event.agency} {event.event_type.replace('_', ' ')} — "
+                f"{event.status}{cite_tag}"
+            )
+        return "\n".join(lines) + "\n"
 
     @staticmethod
     def _format_section_header(section: SectionPlan) -> str:
