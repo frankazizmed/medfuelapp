@@ -32,7 +32,15 @@ def get_extractor_llm() -> ExtractorLLM:
 
 
 def get_narrator_llm() -> NarratorLLM:
-    """Return a narrator implementation per settings, falling back to the stub."""
+    """Return the narrator per settings, falling back to the stub only when off.
+
+    With LLM routing on we use the configured Opus model and nothing lesser: a
+    transient failure is retried (by the SDK) on the SAME model, but a genuine
+    failure surfaces as a failed job rather than silently shipping a lower-quality
+    Sonnet or templated report. Quality is never downgraded behind the user's back.
+    The deterministic stub is only used when LLM routing is disabled entirely
+    (CI / offline), which is an explicit choice, not a degraded run.
+    """
     settings = get_settings()
     if not settings.use_llm:
         return StubNarratorLLM()
@@ -40,7 +48,10 @@ def get_narrator_llm() -> NarratorLLM:
         from medfuel.llm.anthropic_narrator import AnthropicNarrator  # noqa: PLC0415
 
         return AnthropicNarrator(
-            model=settings.narrative_model, api_key=settings.anthropic_api_key
+            model=settings.narrative_model,
+            api_key=settings.anthropic_api_key,
+            timeout=settings.anthropic_timeout_seconds,
+            max_retries=settings.anthropic_max_retries,
         )
     except LLMUnavailableError as exc:
         log.warning("Anthropic narrator unavailable, falling back to stub: %s", exc)

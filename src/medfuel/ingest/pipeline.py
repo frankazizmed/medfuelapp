@@ -147,6 +147,7 @@ async def run_discovery(
             new_count, dup_count = registry.persist_records(
                 company.company_id, job_id, records
             )
+            registry.touch_job(job_id)
             session.commit()
 
         events_persisted = 0
@@ -157,19 +158,20 @@ async def run_discovery(
             with span("embed.run"):
                 embed_pipeline = ChunkEmbedPipeline()
                 try:
-                    chunks_added = await embed_pipeline.run(
+                    await embed_pipeline.run(
                         session=session, company_id=company.company_id
                     )
                 finally:
                     await embed_pipeline.aclose()
-                if chunks_added:
-                    session.commit()
+                registry.touch_job(job_id)
+                session.commit()
 
             extractor_orch = ExtractionOrchestrator()
             with span("extract.run"):
                 candidate_pairs = await extractor_orch.run(
                     session=session, company_id=company.company_id, job_id=job_id
                 )
+                registry.touch_job(job_id)
                 session.commit()
 
             with span("verify.run", candidates=len(candidate_pairs)):
@@ -181,6 +183,7 @@ async def run_discovery(
                 )
                 events_persisted = len(verification.events)
                 claims_persisted = len(verification.claims)
+                registry.touch_job(job_id)
                 session.commit()
 
             with span("render.build", events=events_persisted, claims=claims_persisted):

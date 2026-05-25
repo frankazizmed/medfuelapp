@@ -46,6 +46,18 @@ class Settings(BaseSettings):
     http_timeout_seconds: float = 30.0
     http_max_retries: int = 4
 
+    # Narrative LLM call resilience. The Anthropic SDK retries 429/5xx/timeouts
+    # with exponential backoff internally; these bound that behaviour so a
+    # transient flake doesn't either hang a run or burn Opus tokens for nothing.
+    anthropic_timeout_seconds: float = 60.0
+    anthropic_max_retries: int = 2
+
+    # A generation job that makes no progress for this long is treated as dead
+    # (worker crash, deploy, or a hung await) and force-failed, so it can't sit
+    # in "running" forever. Heartbeats are written at each pipeline stage, so
+    # this is a no-progress ceiling, not a total-runtime limit.
+    job_timeout_seconds: float = 900.0
+
     sec_rate_per_second: float = Field(default=8.0, description="Below SEC's 10/sec ceiling.")
     ncbi_rate_per_second: float = Field(default=2.5, description="3/sec no-key, 10/sec keyed.")
     openfda_rate_per_minute: float = Field(default=200.0, description="Below 240/min ceiling.")
