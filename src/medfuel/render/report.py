@@ -111,6 +111,11 @@ class ReportBuilder:
         )
 
         confidence_summary = self._summarize_confidence(kept_claims)
+        narrative_meta = self._narrative_meta()
+        log.info(
+            "narrative generation complete",
+            extra={"report_id": report_id, "narrative_generation": narrative_meta},
+        )
 
         row = ReportRunRow(
             report_id=report_id,
@@ -119,7 +124,7 @@ class ReportBuilder:
             pages_requested=layout.pages_requested,
             pages_rendered=layout.pages_rendered,
             adaptive_expansion_triggered=layout.adaptive_expansion_triggered,
-            layout_plan=self._layout_to_dict(layout, citations, noise),
+            layout_plan=self._layout_to_dict(layout, citations, noise, narrative_meta),
             narrative_text=narrative,
             confidence_summary=confidence_summary,
             status="complete",
@@ -207,9 +212,25 @@ class ReportBuilder:
         counter: Counter[str] = Counter(c.confidence.value for c in claims)
         return {"high": counter["high"], "medium": counter["medium"], "low": counter["low"]}
 
+    def _narrative_meta(self) -> dict[str, Any]:
+        """Token usage + degradation for the narrator, for cost attribution."""
+        section_models = getattr(self._narrator, "section_models", [])
+        fallback_sections = getattr(self._narrator, "fallback_sections", 0)
+        meta: dict[str, Any] = {
+            "primary_model": self._narrator.model_id,
+            "sections_rendered": len(section_models),
+            "fallback_sections": fallback_sections,
+            "degraded": fallback_sections > 0,
+        }
+        usage = getattr(self._narrator, "usage", None)
+        if usage is not None:
+            meta.update(usage.summary())
+        return meta
+
     @staticmethod
-    def _layout_to_dict(layout, citations, noise) -> dict[str, Any]:
+    def _layout_to_dict(layout, citations, noise, narrative_meta) -> dict[str, Any]:
         return {
+            "narrative_generation": narrative_meta,
             "pages_requested": layout.pages_requested,
             "pages_rendered": layout.pages_rendered,
             "max_pages": layout.max_pages,
