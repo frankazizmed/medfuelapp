@@ -213,15 +213,8 @@ class ReportBuilder:
         return {"high": counter["high"], "medium": counter["medium"], "low": counter["low"]}
 
     def _narrative_meta(self) -> dict[str, Any]:
-        """Token usage + degradation for the narrator, for cost attribution."""
-        section_models = getattr(self._narrator, "section_models", [])
-        fallback_sections = getattr(self._narrator, "fallback_sections", 0)
-        meta: dict[str, Any] = {
-            "primary_model": self._narrator.model_id,
-            "sections_rendered": len(section_models),
-            "fallback_sections": fallback_sections,
-            "degraded": fallback_sections > 0,
-        }
+        """Token usage for the narrator, for cost attribution."""
+        meta: dict[str, Any] = {"model": self._narrator.model_id}
         usage = getattr(self._narrator, "usage", None)
         if usage is not None:
             meta.update(usage.summary())

@@ -10,30 +10,8 @@ from medfuel.db.registry import hash_payload
 from medfuel.ingest.pipeline import DiscoveryPipeline, run_discovery
 from medfuel.llm.base import NarratorLLM
 from medfuel.llm.cost import UsageTracker
-from medfuel.llm.fallback_narrator import FallbackNarrator
-from medfuel.llm.stub import StubNarratorLLM
 from medfuel.models import CompanyIdentity, JurisdictionScope, RawSourceRecord, SourceType
 from medfuel.models.schemas import OFFICIAL_RANK
-
-
-class _FailingNarrator(NarratorLLM):
-    model_id = "fail-model"
-
-    def __init__(self) -> None:
-        self.last_usage: tuple[int, int] | None = None
-
-    async def generate(self, *, system, prompt, max_tokens=1500, temperature=0.2) -> str:
-        raise RuntimeError("boom")
-
-
-class _OkNarrator(NarratorLLM):
-    def __init__(self, model_id: str, text: str, usage: tuple[int, int]) -> None:
-        self.model_id = model_id
-        self._text = text
-        self.last_usage = usage
-
-    async def generate(self, *, system, prompt, max_tokens=1500, temperature=0.2) -> str:
-        return self._text
 
 
 def test_estimate_cost_uses_price_table() -> None:
@@ -46,47 +24,26 @@ def test_estimate_cost_uses_price_table() -> None:
     assert usage.estimate_cost_usd() == pytest.approx(90.0)
 
 
-@pytest.mark.asyncio
-async def test_fallback_uses_secondary_when_primary_fails() -> None:
-    narrator = FallbackNarrator(
-        [
-            _FailingNarrator(),
-            _OkNarrator("claude-sonnet-4-6", "sonnet text", (5, 7)),
-            StubNarratorLLM(),
-        ]
-    )
-    out = await narrator.generate(system="s", prompt="p")
-    assert out == "sonnet text"
-    assert narrator.fallback_sections == 1
-    assert narrator.usage.output_tokens == 7
-    assert narrator.usage.by_model["claude-sonnet-4-6"].calls == 1
+def test_usage_aggregates_across_calls() -> None:
+    usage = UsageTracker()
+    usage.record("claude-opus-4-7", input_tokens=100, output_tokens=200)
+    usage.record("claude-opus-4-7", input_tokens=100, output_tokens=200)
+    assert usage.input_tokens == 200
+    assert usage.output_tokens == 400
+    assert usage.by_model["claude-opus-4-7"].calls == 2
 
 
-@pytest.mark.asyncio
-async def test_fallback_to_stub_when_all_models_fail() -> None:
-    prompt = "sections=executive_summary\nobjective=x"
-    narrator = FallbackNarrator([_FailingNarrator(), _FailingNarrator(), StubNarratorLLM()])
-    out = await narrator.generate(system="s", prompt=prompt)
-    # Stub echoes the prompt, so render() still completes and the report commits.
-    assert out == prompt
-    assert narrator.fallback_sections == 1
-    # The stub reports no usage, so no spend is attributed.
-    assert narrator.usage.input_tokens == 0
-    assert narrator.usage.estimate_cost_usd() == 0.0
+class _UsageNarrator(NarratorLLM):
+    """Stand-in for AnthropicNarrator that records fixed usage per call."""
 
+    model_id = "claude-opus-4-7"
 
-@pytest.mark.asyncio
-async def test_usage_aggregates_across_calls() -> None:
-    narrator = FallbackNarrator(
-        [_OkNarrator("claude-opus-4-7", "x", (100, 200)), StubNarratorLLM()]
-    )
-    await narrator.generate(system="s", prompt="p")
-    await narrator.generate(system="s", prompt="p")
-    assert narrator.usage.input_tokens == 200
-    assert narrator.usage.output_tokens == 400
-    assert narrator.usage.by_model["claude-opus-4-7"].calls == 2
-    assert narrator.fallback_sections == 0
-    assert narrator.usage.estimate_cost_usd() > 0
+    def __init__(self) -> None:
+        self.usage = UsageTracker()
+
+    async def generate(self, *, system, prompt, max_tokens=1500, temperature=0.2) -> str:
+        self.usage.record(self.model_id, input_tokens=10, output_tokens=20)
+        return "section body"
 
 
 def _record(source: SourceType, url: str, payload: dict) -> RawSourceRecord:
@@ -117,9 +74,7 @@ class _FDAStub(SourceAdapter):
 async def test_report_persists_narrative_usage(db_session, monkeypatch) -> None:
     from medfuel.render import report as report_module
 
-    fake = FallbackNarrator(
-        [_OkNarrator("claude-opus-4-7", "section body", (10, 20)), StubNarratorLLM()]
-    )
+    fake = _UsageNarrator()
     monkeypatch.setattr(report_module, "get_narrator_llm", lambda: fake)
 
     records = [
@@ -146,8 +101,7 @@ async def test_report_persists_narrative_usage(db_session, monkeypatch) -> None:
     meta = report.layout_plan["narrative_generation"]
     calls = meta["by_model"]["claude-opus-4-7"]["calls"]
     assert calls >= 1
-    assert meta["primary_model"] == "claude-opus-4-7"
-    assert meta["degraded"] is False
+    assert meta["model"] == "claude-opus-4-7"
     assert meta["input_tokens"] == calls * 10
     assert meta["output_tokens"] == calls * 20
     assert meta["estimated_cost_usd"] > 0

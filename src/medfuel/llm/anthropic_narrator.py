@@ -38,10 +38,8 @@ class AnthropicNarrator(NarratorLLM):
             client_kwargs["max_retries"] = max_retries
         self._client = AsyncAnthropic(**client_kwargs)
         self.model_id = model
-        # `usage` aggregates this narrator's own spend; `last_usage` exposes the
-        # most recent call so a wrapping FallbackNarrator can attribute it.
+        # Aggregates this run's token spend so it can be attributed on the report.
         self.usage = UsageTracker()
-        self.last_usage: tuple[int, int] | None = None
 
     async def generate(
         self,
@@ -61,7 +59,6 @@ class AnthropicNarrator(NarratorLLM):
         usage = getattr(message, "usage", None)
         input_tokens = int(getattr(usage, "input_tokens", 0) or 0)
         output_tokens = int(getattr(usage, "output_tokens", 0) or 0)
-        self.last_usage = (input_tokens, output_tokens)
         self.usage.record(
             self.model_id, input_tokens=input_tokens, output_tokens=output_tokens
         )

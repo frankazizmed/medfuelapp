@@ -32,34 +32,27 @@ def get_extractor_llm() -> ExtractorLLM:
 
 
 def get_narrator_llm() -> NarratorLLM:
-    """Return a narrator implementation per settings, falling back to the stub.
+    """Return the narrator per settings, falling back to the stub only when off.
 
-    With LLM routing on, the narrator is a FallbackNarrator chaining the primary
-    Opus model → the cheaper Sonnet model → the deterministic stub, so a flaky
-    Anthropic call degrades to a still-complete report rather than discarding the
-    sections already paid for.
+    With LLM routing on we use the configured Opus model and nothing lesser: a
+    transient failure is retried (by the SDK) on the SAME model, but a genuine
+    failure surfaces as a failed job rather than silently shipping a lower-quality
+    Sonnet or templated report. Quality is never downgraded behind the user's back.
+    The deterministic stub is only used when LLM routing is disabled entirely
+    (CI / offline), which is an explicit choice, not a degraded run.
     """
     settings = get_settings()
     if not settings.use_llm:
         return StubNarratorLLM()
     try:
         from medfuel.llm.anthropic_narrator import AnthropicNarrator  # noqa: PLC0415
-        from medfuel.llm.fallback_narrator import FallbackNarrator  # noqa: PLC0415
 
-        def _build(model: str) -> AnthropicNarrator:
-            return AnthropicNarrator(
-                model=model,
-                api_key=settings.anthropic_api_key,
-                timeout=settings.anthropic_timeout_seconds,
-                max_retries=settings.anthropic_max_retries,
-            )
-
-        delegates: list[NarratorLLM] = [_build(settings.narrative_model)]
-        fallback_model = settings.narrative_fallback_model
-        if fallback_model and fallback_model != settings.narrative_model:
-            delegates.append(_build(fallback_model))
-        delegates.append(StubNarratorLLM())
-        return FallbackNarrator(delegates)
+        return AnthropicNarrator(
+            model=settings.narrative_model,
+            api_key=settings.anthropic_api_key,
+            timeout=settings.anthropic_timeout_seconds,
+            max_retries=settings.anthropic_max_retries,
+        )
     except LLMUnavailableError as exc:
         log.warning("Anthropic narrator unavailable, falling back to stub: %s", exc)
         return StubNarratorLLM()
