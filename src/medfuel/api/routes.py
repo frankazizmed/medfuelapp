@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import logging
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
@@ -15,6 +17,8 @@ from medfuel.ingest.pipeline import run_discovery
 from medfuel.models.extraction import ReportPlan
 from medfuel.models.schemas import CompanyIdentity, JurisdictionScope, SourceType
 from medfuel.render import ReportBuilder
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/v1/regulatory", tags=["regulatory"])
 
@@ -59,6 +63,20 @@ class JobStatusResponse(BaseModel):
     error: str | None = None
 
 
+def _mark_job_failed(job_id: str, error: str) -> None:
+    """Best-effort terminal failure from a clean session, used when the run was
+    cancelled (timeout) and so couldn't record its own failure."""
+    session = _session()
+    try:
+        DocumentRegistry(session).update_job(job_id, status="failed", error=error)
+        session.commit()
+    except Exception:  # noqa: BLE001 - recovery must not raise
+        session.rollback()
+        log.warning("failed to mark job %s failed", job_id, exc_info=True)
+    finally:
+        session.close()
+
+
 async def _execute_job(
     *,
     identity: CompanyIdentity,
@@ -67,16 +85,29 @@ async def _execute_job(
     max_pages: int,
     job_id: str,
 ) -> None:
+    timeout = get_settings().job_timeout_seconds
     session = _session()
     try:
-        await run_discovery(
-            identity=identity,
-            scope=scope,
-            job_id=job_id,
-            requested_pages=requested_pages,
-            max_pages=max_pages,
-            session=session,
+        await asyncio.wait_for(
+            run_discovery(
+                identity=identity,
+                scope=scope,
+                job_id=job_id,
+                requested_pages=requested_pages,
+                max_pages=max_pages,
+                session=session,
+            ),
+            timeout=timeout,
         )
+    except TimeoutError:
+        # wait_for cancels run_discovery, so it can't record its own failure.
+        _mark_job_failed(
+            job_id, f"Job exceeded the {timeout:.0f}s timeout and was stopped."
+        )
+    except Exception as exc:  # noqa: BLE001
+        # run_discovery already marks failure for ordinary errors; this is a
+        # backstop so a job never silently stays non-terminal.
+        _mark_job_failed(job_id, f"{type(exc).__name__}: {exc}")
     finally:
         session.close()
 
@@ -113,9 +144,14 @@ def create_job(
 @router.get("/jobs/{job_id}", response_model=JobStatusResponse)
 def get_job(job_id: str, db: Session = Depends(get_db)) -> JobStatusResponse:
     registry = DocumentRegistry(db)
-    job = registry.get_job(job_id)
+    # Surface a dead job as failed rather than letting the client poll a
+    # forever-"running" status when its worker terminated mid-run.
+    job = registry.recover_if_stale(
+        job_id, timeout_seconds=get_settings().job_timeout_seconds
+    )
     if job is None:
         raise HTTPException(status_code=404, detail=f"Job not found: {job_id}")
+    db.commit()
     return JobStatusResponse(
         job_id=job.job_id,
         company_id=job.company_id,

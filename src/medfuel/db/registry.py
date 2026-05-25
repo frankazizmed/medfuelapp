@@ -4,13 +4,22 @@ import hashlib
 import json
 import uuid
 from collections.abc import Iterable
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from medfuel.db.orm import AuditEvent, CompanyRow, JobRow, SourceDocumentRow
 from medfuel.models.schemas import CompanyIdentity, RawSourceRecord
+
+# A job in one of these states has reached a final outcome and must never be
+# revived by the stale-job recovery sweep.
+TERMINAL_JOB_STATUSES = frozenset({"complete", "complete_with_errors", "failed"})
+
+_STALE_JOB_ERROR = (
+    "Job made no progress within the configured timeout; the worker likely "
+    "terminated mid-run (crash, deploy, or hung request)."
+)
 
 
 def hash_payload(url: str, payload: dict | None, title: str | None = None) -> str:
@@ -114,6 +123,72 @@ class DocumentRegistry:
 
     def get_job(self, job_id: str) -> JobRow | None:
         return self.session.get(JobRow, job_id)
+
+    def touch_job(self, job_id: str) -> None:
+        """Heartbeat: bump updated_at so progress resets the no-progress clock.
+
+        Called at each pipeline stage so a long-but-healthy run is never mistaken
+        for a dead one. Flushes within the caller's transaction; the caller commits.
+        """
+        row = self.session.get(JobRow, job_id)
+        if row is None:
+            return
+        row.updated_at = datetime.utcnow()
+        self.session.add(row)
+        self.session.flush()
+
+    def recover_if_stale(
+        self,
+        job_id: str,
+        *,
+        timeout_seconds: float,
+        reason: str = _STALE_JOB_ERROR,
+    ) -> JobRow | None:
+        """Force-fail a single non-terminal job whose last heartbeat is too old.
+
+        Returns the (possibly updated) row, or None if the job doesn't exist. Used
+        on status polls so a stuck job surfaces as "failed" instead of spinning.
+        """
+        row = self.session.get(JobRow, job_id)
+        if row is None:
+            return None
+        cutoff = datetime.utcnow() - timedelta(seconds=timeout_seconds)
+        if row.status not in TERMINAL_JOB_STATUSES and row.updated_at < cutoff:
+            row.status = "failed"
+            row.error = reason
+            row.updated_at = datetime.utcnow()
+            self.session.add(row)
+            self.session.flush()
+            self._audit("job", row.job_id, "update:failed", detail={"reason": "stale_timeout"})
+        return row
+
+    def fail_stale_jobs(
+        self,
+        *,
+        timeout_seconds: float,
+        reason: str = _STALE_JOB_ERROR,
+    ) -> list[str]:
+        """Force-fail every non-terminal job with a stale heartbeat. Returns their ids.
+
+        Run at startup to reclaim jobs orphaned by the previous process. Staleness
+        (not just "running") is the gate, so a job actively heartbeating elsewhere
+        is left untouched.
+        """
+        cutoff = datetime.utcnow() - timedelta(seconds=timeout_seconds)
+        stmt = select(JobRow).where(
+            JobRow.status.not_in(TERMINAL_JOB_STATUSES),
+            JobRow.updated_at < cutoff,
+        )
+        stale = list(self.session.execute(stmt).scalars())
+        for row in stale:
+            row.status = "failed"
+            row.error = reason
+            row.updated_at = datetime.utcnow()
+            self.session.add(row)
+            self._audit("job", row.job_id, "update:failed", detail={"reason": "stale_timeout"})
+        if stale:
+            self.session.flush()
+        return [row.job_id for row in stale]
 
     # ------------------------------------------------------------- source records
     def persist_records(
