@@ -72,13 +72,13 @@ def plan_layout(
     *,
     events: list[RegulatoryEvent],
     claims: list[VerifiedClaim],
-    requested_pages: int = 4,
-    max_pages: int = 8,
+    requested_pages: int = 6,
+    max_pages: int = 10,
     table_only_ids: set[str] | None = None,
 ) -> LayoutPlan:
     """Mechanical pagination per the design's expansion rules.
 
-    Builds the baseline sections, fills each with the highest-signal
+    Builds the six baseline sections, fills each with the highest-signal
     narrative claims, routes table-only claims to a supporting bucket, and
     then expands one page at a time only when the design's omission triggers
     are tripped. Claims are expected to be pre-filtered by score.noise; the

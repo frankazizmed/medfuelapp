@@ -93,7 +93,7 @@ def _submit_and_wait(client: TestClient) -> dict:
         json={
             "company": {"name": "Example Tx"},
             "scope": {"sources": ["fda"], "jurisdictions": ["US"], "lookback_years": 5},
-            "report_plan": {"requested_pages": 4, "max_pages": 8, "english_only": True},
+            "report_plan": {"requested_pages": 6, "max_pages": 10, "english_only": True},
         },
     )
     assert resp.status_code == 202
@@ -119,7 +119,7 @@ def test_report_endpoints_return_structured_data(client):
     rpt_resp = client.get(f"/v1/regulatory/reports/{report_id}")
     assert rpt_resp.status_code == 200
     rpt = rpt_resp.json()
-    assert rpt["pages_rendered"] == 4
+    assert rpt["pages_rendered"] == 6
     assert rpt["adaptive_expansion_triggered"] is False
     assert rpt["confidence_summary"]["high"] + rpt["confidence_summary"]["medium"] >= 1
     assert any(s["slug"] == "executive_summary" for s in rpt["layout_plan"]["sections"])
@@ -140,7 +140,7 @@ def test_rerender_creates_new_report_run(client):
 
     rerender = client.post(
         f"/v1/regulatory/reports/{original_id}/rerender",
-        json={"requested_pages": 6, "max_pages": 8},
+        json={"requested_pages": 6, "max_pages": 10},
     )
     assert rerender.status_code == 200
     new = rerender.json()

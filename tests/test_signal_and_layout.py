@@ -60,7 +60,7 @@ def test_signal_score_higher_for_critical_corroborated_events():
     assert not is_critical(patent)
 
 
-def test_layout_keeps_four_pages_when_no_critical_omitted():
+def test_layout_keeps_six_pages_when_no_critical_omitted():
     events = [
         _event("e1", "approval"),
         _event("e2", "trial_update", investor_importance=3, evidence_strength=4),
@@ -68,18 +68,20 @@ def test_layout_keeps_four_pages_when_no_critical_omitted():
     ]
     claims = [_claim(f"c{i}", e) for i, e in enumerate(events)]
     layout = plan_layout(events=events, claims=claims)
-    assert layout.pages_rendered == 4
+    assert layout.pages_rendered == 6
     assert layout.adaptive_expansion_triggered is False
     assert {s.slug for s in layout.sections} == {
         "executive_summary",
-        "pathway_and_timeline",
-        "trials_safety_compliance",
+        "pathway_matrix",
+        "timeline",
+        "trials_and_evidence",
+        "safety_quality_compliance",
         "implications_and_watchlist",
     }
 
 
 def test_layout_expands_when_critical_items_would_be_omitted():
-    # Build more critical items than the four-page baseline can absorb.
+    # Build more critical items than the six-page baseline can absorb.
     # Baseline capacity is ~18 placements; 40 high-signal items forces expansion.
     events = [
         _event(f"e_app_{i}", "approval", investor_importance=5, evidence_strength=5, sources=3)
@@ -94,13 +96,13 @@ def test_layout_expands_when_critical_items_would_be_omitted():
 
     layout = plan_layout(events=events, claims=claims)
     assert layout.adaptive_expansion_triggered is True
-    assert 4 < layout.pages_rendered <= 8
+    assert 6 < layout.pages_rendered <= 10
     assert any("expanded" in r for r in layout.expansion_reasons)
 
 
 def test_layout_caps_at_max_pages():
-    # Far more high-signal claims than 8 pages can absorb.
+    # Far more high-signal claims than 10 pages can absorb.
     events = [_event(f"e{i}", "approval", sources=3) for i in range(60)]
     claims = [_claim(f"c{i}", e) for i, e in enumerate(events)]
     layout = plan_layout(events=events, claims=claims)
-    assert layout.pages_rendered == 8
+    assert layout.pages_rendered == 10

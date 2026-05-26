@@ -16,7 +16,7 @@ Company request
   → dedupe by semantic event key
   → verify (rule-based support classification, confidence)
   → score (relevance/evidence/uniqueness/investor weights → 0–100 signal)
-  → layout (four-page aim; mechanical expansion up to eight pages when warranted)
+  → layout (six-page aim; mechanical expansion up to ten pages when warranted)
   → citations (per-claim inline numbering, persisted per report run)
   → narrative (Claude Opus 4.7 in production; templated stub in CI)
   → persisted report run + REST endpoints for retrieval and rerender
@@ -70,15 +70,17 @@ Company request
     the excess to tables so management framing cannot dominate.
   - Every exclusion carries a reason; the full breakdown is persisted in the
     report's `layout_plan.noise` for audit.
-- **Four-page baseline** (the aim — not a cap) with explicit per-section
+- **Six-page baseline** (the aim - not a cap) with explicit per-section
   word budgets:
-  - Executive summary (280–340 words)
-  - Pathway and timeline (260–340)
-  - Trials, safety and compliance (320–420)
+  - Executive summary (260–320 words)
+  - Pathway matrix (180–240)
+  - Timeline (160–220)
+  - Trials and evidence (280–360)
+  - Safety, quality, compliance (260–340)
   - Implications and watchlist (220–300)
-- **Mechanical pagination engine** expands the four-page aim by +1 page per
+- **Mechanical pagination engine** expands the six-page aim by +1 page per
   trigger (omitted critical items, omitted high-signal share > 10%) only
-  when warranted, capped at eight pages.
+  when warranted, capped at ten pages.
 - **Citation engine** assigns stable inline numbers per claim and
   persists `citations` rows keyed to the report run.
 - **Narrative renderer** drives the configured `NarratorLLM` (Claude

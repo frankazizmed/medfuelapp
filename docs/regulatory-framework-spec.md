@@ -163,16 +163,18 @@ table_only, dropped, company_demoted, dropped_reasons{...}}`.
 
 ---
 
-## 6. Section structure (4-page aim) + word budgets
+## 6. Section structure (6-page aim) + word budgets
 
-Four sections. Word budgets are targets, enforced by the writer prompt.
+Six sections. Word budgets are targets, enforced by the writer prompt.
 
 | # | slug | title | words | themes (event types it pulls) |
 |---|------|-------|------:|-------------------------------|
-| 1 | `executive_summary` | Executive summary | 280–340 | synthesis (all) |
-| 2 | `pathway_and_timeline` | Pathway and timeline | 260–340 | approval, clearance, designation, offering_or_filing, patent_event |
-| 3 | `trials_safety_compliance` | Trials, safety and compliance | 320–420 | trial_update, clinical_hold, warning, inspection, label_change, manufacturing_issue |
-| 4 | `implications_and_watchlist` | Implications and watchlist | 220–300 | synthesis (all) |
+| 1 | `executive_summary` | Executive summary | 260–320 | synthesis (all) |
+| 2 | `pathway_matrix` | Pathway matrix | 180–240 | approval, clearance, designation |
+| 3 | `timeline` | Timeline | 160–220 | all regulatory event types |
+| 4 | `trials_and_evidence` | Trials and evidence | 280–360 | trial_update, clinical_hold |
+| 5 | `safety_quality_compliance` | Safety, quality, compliance | 260–340 | warning, inspection, label_change, manufacturing_issue, clinical_hold |
+| 6 | `implications_and_watchlist` | Implications and watchlist | 220–300 | synthesis (all) |
 
 Placement caps per section: synthesis sections take the top **6** narrative
 claims; themed sections take the top **3**; table bucket takes up to **6**.
@@ -182,13 +184,13 @@ Rank candidates by `(signalScore desc, eventDate desc)`. A claim is placed once.
 
 ## 7. Pagination / adaptive expansion
 
-- **Aim = 4 pages. Max = 8.** Four is the target, not a cap.
-- After filling the 4 baseline sections, expand **+1 page at a time** while
+- **Aim = 6 pages. Max = 10.** Six is the target, not a cap.
+- After filling the 6 baseline sections, expand **+1 page at a time** while
   EITHER trigger holds:
   - `omittedCritical > 0` (a critical-type narrative claim didn't get placed), OR
   - `omittedHighSignalShare > 0.10` (>10% of claims scoring ≥ 75 are unplaced).
 - Each expansion adds up to 3 more high-signal claims into the section with the
-  most unplaced themed claims. Stop when both triggers clear or at 8 pages.
+  most unplaced themed claims. Stop when both triggers clear or at 10 pages.
 - Expansion metrics count **narrative-eligible** claims only — table-only
   context never counts as "omitted".
 
@@ -294,7 +296,7 @@ export function noiseGate(
 - A sub-55 non-critical claim never appears in prose.
 - A company-only-sourced narrative cannot exceed 15% of narrative claims.
 - A claim with an official (rank ≤ 2) source is "high" confidence.
-- Default render = 4 pages; expansion only on the two triggers; hard cap 8.
+- Default render = 6 pages; expansion only on the two triggers; hard cap 10.
 
 ---
 

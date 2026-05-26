@@ -76,7 +76,7 @@ class DocumentRegistry:
         self,
         company_id: str,
         request_payload: dict,
-        requested_pages: int = 4,
+        requested_pages: int = 6,
     ) -> JobRow:
         row = JobRow(
             job_id=f"job_{uuid.uuid4().hex[:12]}",
